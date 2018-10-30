@@ -11,5 +11,5 @@ Dataset[WikiPage]
 ```
 where WikiPage is defined as:
 ```scala
-case class WikiPage(id: String, title: String, summary: String, body: String)
+case class WikiPage(id: Long, title: String, summary: String, body: String)
 ```
