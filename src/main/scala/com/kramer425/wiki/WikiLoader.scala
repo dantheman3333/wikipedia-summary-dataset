@@ -9,7 +9,7 @@ import org.wikiclean.WikiClean
 import org.wikiclean.WikiClean.WikiLanguage
 
 
-case class WikiPage(id: String, title: String, summary: String, body: String)
+case class WikiPage(id: Long, title: String, summary: String, body: String)
 
 class WikiLoader(private val spark: SparkSession) extends Serializable {
   import spark.implicits._
@@ -42,35 +42,7 @@ class WikiLoader(private val spark: SparkSession) extends Serializable {
       .withFooter(false).build()
   }
 
-  /*
-  private def xmlToWikiPage(wikiCleaner: WikiClean, pageXMl: String): Option[WikiPage] = {
-      val headingMatches = headerRegex.findAllIn(pageXMl)
 
-      headingMatches.hasNext match {
-        case false => None
-        case true => {
-          val firstHeadingIndex = headingMatches.start
-
-          //split page into summary and body xml
-          val summaryXml = pageXMl.substring(0, firstHeadingIndex) + "</text>"
-          val bodyXml = "<text xml:space=\"preserve\"" + pageXMl.substring(firstHeadingIndex, pageXMl.length)
-
-          val id = wikiCleaner.getId(pageXMl);
-          val title = wikiCleaner.getTitle(pageXMl);
-          val summary = wikiCleaner.clean(summaryXml);
-
-          val rawBody = wikiCleaner.clean(bodyXml);
-          //remove lines which are just section headers
-          val body = rawBody.split("\n").filterNot(isHeaderOrErrorLine).mkString("\n")
-
-          if(title.isEmpty || title.toLowerCase.contains("disambiguation") || summary.isEmpty || body.isEmpty){
-            None
-          }else{
-            Some(WikiPage(id, title, summary, body))
-          }
-        }
-      }
-  }*/
   private def xmlToWikiPage(wikiCleaner: WikiClean, pageXMl: String): Option[WikiPage] = {
     val firstHeadingIndex = pageXMl.indexOf(headerString)
 
@@ -82,11 +54,11 @@ class WikiLoader(private val spark: SparkSession) extends Serializable {
         val summaryXml = pageXMl.substring(0, firstHeadingIndex) + "</text>"
         val bodyXml = "<text xml:space=\"preserve\"" + pageXMl.substring(firstHeadingIndex, pageXMl.length)
 
-        val id = wikiCleaner.getId(pageXMl);
-        val title = wikiCleaner.getTitle(pageXMl);
-        val summary = wikiCleaner.clean(summaryXml);
+        val id = wikiCleaner.getId(summaryXml).toLong
+        val title = wikiCleaner.getTitle(summaryXml)
+        val summary = wikiCleaner.clean(summaryXml)
 
-        val rawBody = wikiCleaner.clean(bodyXml);
+        val rawBody = wikiCleaner.clean(bodyXml)
         //remove lines which are just section headers
         val body = rawBody.split("\n").filterNot(isHeaderOrErrorLine).mkString("\n")
 
