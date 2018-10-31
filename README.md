@@ -1,4 +1,4 @@
-# wikiprocessing
+# wikipedia-summary-dataset
 
 #### A library for parsing Wikipedia dumps into summary and body representations for use in Text Summarization projects.  
 
