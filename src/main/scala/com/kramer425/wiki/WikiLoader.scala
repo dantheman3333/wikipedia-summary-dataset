@@ -11,7 +11,7 @@ import org.wikiclean.WikiClean.WikiLanguage
 
 case class WikiPage(id: Long, title: String, summary: String, body: String)
 
-class WikiLoader(private val spark: SparkSession) extends Serializable {
+class WikiLoader(private val spark: SparkSession, newlineReplacement: Option[String]) extends Serializable {
   import spark.implicits._
 
   private val headerString = "\n=="
@@ -48,7 +48,7 @@ class WikiLoader(private val spark: SparkSession) extends Serializable {
 
     firstHeadingIndex match {
       case -1 => None
-      case _ => {
+      case _ =>
 
         //split page into summary and body xml
         val summaryXml = pageXMl.substring(0, firstHeadingIndex) + "</text>"
@@ -56,18 +56,25 @@ class WikiLoader(private val spark: SparkSession) extends Serializable {
 
         val id = wikiCleaner.getId(summaryXml).toLong
         val title = wikiCleaner.getTitle(summaryXml)
-        val summary = wikiCleaner.clean(summaryXml)
 
-        val rawBody = wikiCleaner.clean(bodyXml)
-        //remove lines which are just section headers
-        val body = rawBody.split("\n").filterNot(isHeaderOrErrorLine).mkString("\n")
+        val (summary, body) = {
+          val summaryText = wikiCleaner.clean(summaryXml)
+          val rawBodyText = wikiCleaner.clean(bodyXml)
+          //remove lines which are just section headers
+          val cleanedBodyText = rawBodyText.split("\n").filterNot(isHeaderOrErrorLine).mkString("\n")
+
+          //optionally replace newlines
+          newlineReplacement match {
+            case None => (summaryText, cleanedBodyText)
+            case Some(rep) => (summaryText.replaceAll("\n", rep), cleanedBodyText.replaceAll("\n", rep))
+          }
+        }
 
         if(title.isEmpty || title.toLowerCase.contains("disambiguation") || summary.isEmpty || body.isEmpty){
           None
         }else{
           Some(WikiPage(id, title, summary, body))
         }
-      }
     }
   }
 
@@ -76,13 +83,13 @@ class WikiLoader(private val spark: SparkSession) extends Serializable {
     val puncMatches = punctuationRegex.findAllIn(line)
     val letterMatches = letterRegex.findAllIn(line)
     line.isEmpty || line.startsWith("File:") || puncMatches.isEmpty || letterMatches.isEmpty ||
-      (!puncMatches.isEmpty && letterMatches.isEmpty)
+      (puncMatches.nonEmpty && letterMatches.isEmpty)
   }
 
 }
 
 object WikiLoader{
-  def apply(spark: SparkSession): WikiLoader = {
-    new WikiLoader(spark)
+  def apply(spark: SparkSession, newlineReplacement: Option[String] = None): WikiLoader = {
+    new WikiLoader(spark, newlineReplacement)
   }
 }
