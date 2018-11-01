@@ -30,13 +30,13 @@ object Main {
       .option("delimiter", wikiConfig.outputDelimiter)
       .save(wikiConfig.outputDir)
 
-    printf(s"Articles processed: ${pagesDs.count()}")
+    println(s"Articles processed: ${pagesDs.count()}")
 
     pagesDs.unpersist()
 
     val endTime = System.nanoTime()
 
-    printf(s"Elapsed time: ${(endTime - startTime)/1e9d}")
+    println(s"Elapsed time: ${(endTime - startTime)/1e9d}")
   }
 
 
