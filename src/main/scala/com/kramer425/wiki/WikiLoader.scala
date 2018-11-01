@@ -1,6 +1,6 @@
 package com.kramer425.wiki
 
-import edu.umd.cloud9.collection.XMLInputFormat
+import io.mindfulmachines.input.XMLInputFormat
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.io.{LongWritable, Text}
 import org.apache.spark.rdd.RDD
@@ -58,15 +58,20 @@ class WikiLoader(private val spark: SparkSession, newlineReplacement: Option[Str
         val title = wikiCleaner.getTitle(summaryXml)
 
         val (summary, body) = {
-          val summaryText = wikiCleaner.clean(summaryXml)
-          val rawBodyText = wikiCleaner.clean(bodyXml)
-          //remove lines which are just section headers
-          val cleanedBodyText = rawBodyText.split("\n").filterNot(isHeaderOrErrorLine).mkString("\n")
+          try {
+            val summaryText = wikiCleaner.clean(summaryXml)
+            val rawBodyText = wikiCleaner.clean(bodyXml)
+            //remove lines which are just section headers
+            val cleanedBodyText = rawBodyText.split("\n").filterNot(isHeaderOrErrorLine).mkString("\n")
 
-          //optionally replace newlines
-          newlineReplacement match {
-            case None => (summaryText, cleanedBodyText)
-            case Some(rep) => (summaryText.replaceAll("\n", rep), cleanedBodyText.replaceAll("\n", rep))
+            //optionally replace newlines
+            newlineReplacement match {
+              case None => (summaryText, cleanedBodyText)
+              case Some(rep) => (summaryText.replaceAll("\n", rep), cleanedBodyText.replaceAll("\n", rep))
+            }
+          }catch{
+            //Sometimes WikiCleaner fails on certain characters
+            case _: IllegalArgumentException => ("", "")
           }
         }
 
