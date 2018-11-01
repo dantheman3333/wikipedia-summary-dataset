@@ -1,13 +1,13 @@
 package com.kramer425.config
 
-import java.io.File
-
 import com.typesafe.config.ConfigException.BadValue
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigSyntax}
+import org.apache.commons.io.IOUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 case class WikiConfig(inputDir: String,
                       outputDir: String,
-                      outputSingleFile: Boolean,
                       outputFormat: String,
                       outputDelimiter: String,
                       newlineReplacement: Option[String])
@@ -21,15 +21,12 @@ object WikiConfig {
 
   val allowedOutputFormats = Set("csv", "txt")
 
-  private def parseConfig(path: String): WikiConfig = {
-    val configFile = new File(path)
-    val config = ConfigFactory.parseFile(configFile)
+  private def parseConfig(filePath: String): WikiConfig = {
+    val config = readFile(filePath)
 
     val inputDir= config.getString("input.dir").toLowerCase
 
-    val outputDir = config.getString("output.dir").toLowerCase
-
-    val outputSingleFile = config.getBoolean("output.singlefile")
+    val outputDir = config.getString("output.filePath").toLowerCase
 
     val outputFormat = config.getString("output.format").toLowerCase
 
@@ -39,9 +36,26 @@ object WikiConfig {
 
     val outputDelimiter = config.getString("output.delimiter").toLowerCase
 
-    val newLineReplacement = config.getOptional[String]("newLineReplacement")
+    val newLineReplacement = config.getOptional[String]("output.newLineReplacement")
 
-    WikiConfig(inputDir, outputDir, outputSingleFile, outputFormat, outputDelimiter, newLineReplacement)
+    WikiConfig(inputDir, outputDir, outputFormat, outputDelimiter, newLineReplacement)
+  }
+
+  private def readFile(filePath: String): Config = {
+    val conf = new Configuration()
+
+    val path = new Path(filePath)
+    val fs = path.getFileSystem(conf)
+    val dataInputStream = fs.open(path)
+
+    val config = try {
+      val str = IOUtils.toString(dataInputStream, "UTF-8")
+      ConfigFactory.parseString(str, ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES))
+    } finally {
+      dataInputStream.close()
+    }
+
+    config
   }
 
   implicit class ConfigOpts(config: Config){
