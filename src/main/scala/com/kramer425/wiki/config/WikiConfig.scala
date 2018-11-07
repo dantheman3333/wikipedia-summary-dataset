@@ -1,4 +1,4 @@
-package com.kramer425.config
+package com.kramer425.wiki.config
 
 import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigSyntax}
