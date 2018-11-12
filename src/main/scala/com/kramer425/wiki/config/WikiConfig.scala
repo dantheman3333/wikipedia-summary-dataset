@@ -2,12 +2,12 @@ package com.kramer425.wiki.config
 
 import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigSyntax}
-import org.apache.commons.io.IOUtils
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import com.kramer425.files.FileReader
 
 case class WikiConfig(inputDir: String,
-                      outputDir: String,
+                      outputRegularPath: Option[String],
+                      outputLemmatizedPath: Option[String],
+                      outputVocabularyPath: Option[String],
                       outputFormat: String,
                       outputDelimiter: String,
                       newlineReplacement: Option[String])
@@ -26,7 +26,11 @@ object WikiConfig {
 
     val inputDir= config.getString("input.dir").toLowerCase
 
-    val outputDir = config.getString("output.filePath").toLowerCase
+    val outputBaseDir = config.getString("output.base.path").toLowerCase
+
+    val outputRegularPath = config.getOptional[String]("output.regularFileName").map(join(outputBaseDir, _))
+    val outputLemmatizedPath = config.getOptional[String]("output.lemmatizedFileName").map(join(outputBaseDir, _))
+    val outputVocabularyPath = config.getOptional[String]("output.vocabularyFileName").map(join(outputBaseDir, _))
 
     val outputFormat = config.getString("output.format").toLowerCase
 
@@ -38,24 +42,21 @@ object WikiConfig {
 
     val newLineReplacement = config.getOptional[String]("output.newLineReplacement")
 
-    WikiConfig(inputDir, outputDir, outputFormat, outputDelimiter, newLineReplacement)
+    WikiConfig(inputDir, outputRegularPath, outputLemmatizedPath, outputVocabularyPath, outputFormat, outputDelimiter, newLineReplacement)
+  }
+
+  private def join(base: String, post: String): String = {
+    val sb = new StringBuilder(base)
+    if(!base.endsWith("/")){
+      sb.append("/")
+    }
+    sb.append(post)
+    sb.toString()
   }
 
   private def readFile(filePath: String): Config = {
-    val conf = new Configuration()
-
-    val path = new Path(filePath)
-    val fs = path.getFileSystem(conf)
-    val dataInputStream = fs.open(path)
-
-    val config = try {
-      val str = IOUtils.toString(dataInputStream, "UTF-8")
-      ConfigFactory.parseString(str, ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES))
-    } finally {
-      dataInputStream.close()
-    }
-
-    config
+    val str = FileReader.readFile(filePath)
+    ConfigFactory.parseString(str, ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES))
   }
 
   implicit class ConfigOpts(config: Config){
