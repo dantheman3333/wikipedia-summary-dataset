@@ -76,7 +76,7 @@ class WikiLoader(private val spark: SparkSession, newlineReplacement: Option[Str
         }
 
         if(title.isEmpty || title.toLowerCase.contains("disambiguation") || title.toLowerCase.contains("wikipedia:")
-          || summary.isEmpty || body.isEmpty){
+          || title.toLowerCase.contains("template:") || summary.isEmpty || body.isEmpty){
           None
         }else{
           Some(WikiPage(id, title, summary, body))
