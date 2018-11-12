@@ -11,7 +11,7 @@ import org.wikiclean.WikiClean.WikiLanguage
 
 case class WikiPage(id: Long, title: String, summary: String, body: String)
 
-class WikiLoader(private val spark: SparkSession, newlineReplacement: Option[String]) extends Serializable {
+class WikiLoader(spark: SparkSession, newlineReplacement: Option[String]) extends Serializable {
   import spark.implicits._
 
   private val headerString = "\n=="
