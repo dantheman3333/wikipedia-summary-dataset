@@ -75,13 +75,17 @@ class WikiLoader(private val spark: SparkSession, newlineReplacement: Option[Str
           }
         }
 
-        if(title.isEmpty || title.toLowerCase.contains("disambiguation") || title.toLowerCase.contains("wikipedia:")
-          || title.toLowerCase.contains("template:") || summary.isEmpty || body.isEmpty){
+        if(title.isEmpty || isMetaArticle(title.toLowerCase) || summary.isEmpty || body.isEmpty){
           None
         }else{
           Some(WikiPage(id, title, summary, body))
         }
     }
+  }
+
+  private def isMetaArticle(lowerTitle: String): Boolean = {
+    lowerTitle.contains("disambiguation") || lowerTitle.startsWith("wikipedia:") || lowerTitle.startsWith("template:") ||
+      lowerTitle.startsWith("file:") || lowerTitle.startsWith("draft:") || lowerTitle.startsWith("help:")
   }
 
   private def isHeaderOrErrorLine(line: String): Boolean = {
