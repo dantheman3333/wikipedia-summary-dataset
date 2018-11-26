@@ -12,15 +12,17 @@ import org.apache.spark.broadcast.Broadcast
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-case class LemmatizedWikiPage(id: Long, title: String, summary: Seq[String], body: Seq[String])
+case class ProcessedWikiPage(id: Long, title: String, summary: Seq[String], body: Seq[String])
 
 class Preprocessing(spark: SparkSession) extends Serializable {
+
   import spark.implicits._
 
   val NUMBER_TOKEN = "<NUMBER>"
 
   // Taken from: https://rosettacode.org/wiki/Determine_if_a_string_is_numeric#Scala
-  val numberRegex = """[+-]?((\d+(e\d+)?[lL]?)|(((\d+(\.\d*)?)|(\.\d+))(e\d+)?[fF]?))""".r
+  val numberRegex =
+    """[+-]?((\d+(e\d+)?[lL]?)|(((\d+(\.\d*)?)|(\.\d+))(e\d+)?[fF]?))""".r
 
   private val bStopWords: Broadcast[Set[String]] = loadStopWords()
 
@@ -45,26 +47,27 @@ class Preprocessing(spark: SparkSession) extends Serializable {
       .replaceAll("‒", "-")
   }
 
-  def lemmatizeWikiPages(wikiPages: Dataset[WikiPage]): Dataset[LemmatizedWikiPage] = {
-    wikiPages.mapPartitions(iter => {
+  def processWikiPages(wikiPages: Dataset[WikiPage]): Dataset[ProcessedWikiPage] = {
+    wikiPages.mapPartitions( iter => {
       val stanfordNLP = nlpInstance()
-      iter.map(wikiPage => lemmatizeWikiPage(wikiPage, stanfordNLP, bStopWords.value))
+      iter.map(wikiPage => processWikiPage(wikiPage, stanfordNLP, bStopWords.value))
     })
   }
 
-  private def lemmatizeWikiPage(wikiPage: WikiPage, stanfordNLP: StanfordCoreNLP, stopWords: Set[String]): LemmatizedWikiPage = {
+  private def processWikiPage(wikiPage: WikiPage, stanfordNLP: StanfordCoreNLP, stopWords: Set[String]): ProcessedWikiPage = {
     val nSummary = normalizeString(wikiPage.summary)
     val nBody = normalizeString(wikiPage.body)
 
-    val summaryLemmas: Seq[String] = plainTextToLemmas(nSummary, stanfordNLP, stopWords)
-    val bodyLemmas : Seq[String] = plainTextToLemmas(nBody, stanfordNLP, stopWords)
+    val summaryLemmas: Seq[String] = plainTextToLemmasAndNER(nSummary, stanfordNLP, stopWords)
+    val bodyLemmas: Seq[String] = plainTextToLemmasAndNER(nBody, stanfordNLP, stopWords)
 
-    LemmatizedWikiPage(wikiPage.id, wikiPage.title, summaryLemmas, bodyLemmas)
+    ProcessedWikiPage(wikiPage.id, wikiPage.title, summaryLemmas, bodyLemmas)
   }
 
   private def nlpInstance(): StanfordCoreNLP = {
     val props = new Properties()
-    props.put("annotators", "tokenize, ssplit, pos, lemma")
+    props.put("annotators", "tokenize, ssplit, pos, lemma, ner")
+    props.put("threads", "3") //also need to set spark's spark.task.cpus to 3
     new StanfordCoreNLP(props)
   }
 
@@ -77,18 +80,24 @@ class Preprocessing(spark: SparkSession) extends Serializable {
   }
 
   // Convert text to Seq of lemmas. Add sentence start tokens and sentence end tokens. Replace numbers with token
-  private def plainTextToLemmas(text: String, stanfordNLP: StanfordCoreNLP, stopWords: Set[String]): Seq[String] = {
+  private def plainTextToLemmasAndNER(text: String, stanfordNLP: StanfordCoreNLP, stopWords: Set[String]): Seq[String] = {
     val doc = new Annotation(text)
     stanfordNLP.annotate(doc)
     val lemmas = new ArrayBuffer[String]()
     val sentences = doc.get(classOf[SentencesAnnotation])
     for (sentence <- sentences.asScala; token <- sentence.get(classOf[TokensAnnotation]).asScala) {
+      val ner = token.ner()
+      if (ner.isEmpty || ner.equals("O")) {
         val lemma = token.get(classOf[LemmaAnnotation]).toLowerCase
         if (lemma.length > 2 && !stopWords.contains(lemma) && isOnlyLetters(lemma)) {
           lemmas += lemma
-        }else if (isNumber(lemma)) {
+        } else if (isNumber(lemma)) {
           lemmas += NUMBER_TOKEN
         }
+      } else {
+        //if named entity is found, replace token with its ner tag
+        lemmas += "<" + token.ner().toUpperCase + ">"
+      }
     }
     lemmas
   }

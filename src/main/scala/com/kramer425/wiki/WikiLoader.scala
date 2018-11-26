@@ -75,7 +75,8 @@ class WikiLoader(spark: SparkSession, newlineReplacement: Option[String]) extend
           }
         }
 
-        if(title.isEmpty || isMetaArticle(title.toLowerCase) || summary.isEmpty || body.isEmpty){
+        //filter body lengths that are greater than 1 std dev above mean (3476) std dev (6516)
+        if(title.isEmpty || isMetaArticle(title.toLowerCase) || summary.isEmpty || body.isEmpty || body.length > 10000){
           None
         }else{
           Some(WikiPage(id, title, summary, body))

@@ -33,6 +33,8 @@ object Main {
         .save(wikiConfig.outputRegularPath.get)
     }
 
+    pagesDs.show(10, false)
+
     println(s"Articles processed: ${pagesDs.count()}")
 
     pagesDs.map(wikiPage => Array(wikiPage.summary.length, wikiPage.summary.split("\\.").length,
@@ -47,11 +49,12 @@ object Main {
       .show()
 
     val preprocesser = Preprocessing(spark)
-    val lemmatizedPagesDs = preprocesser.lemmatizeWikiPages(pagesDs)
-    lemmatizedPagesDs.cache()
+    val processedPagesDs = preprocesser.processWikiPages(pagesDs)
+
+    processedPagesDs.cache()
 
     if(wikiConfig.outputLemmatizedPath.isDefined){
-      lemmatizedPagesDs.select(
+      processedPagesDs.select(
         col("id"),
         col("title"),
         concat_ws(" ", col("summary")),
@@ -62,22 +65,21 @@ object Main {
         .save(wikiConfig.outputLemmatizedPath.get)
     }
 
-    lemmatizedPagesDs.map(lemmatizedWikiPage => Array(lemmatizedWikiPage.summary.length, lemmatizedWikiPage.body.length))
+    processedPagesDs.show(10,false)
+
+    processedPagesDs.map(processedWikiPage => Array(processedWikiPage.summary.length, processedWikiPage.body.length))
       .select(
-        col("value").getItem(0).as("lemmatizedSummaryLength"),
-        col("value").getItem(1).as("lemmatizedBodyLength")
+        col("value").getItem(0).as("processedSummaryLength"),
+        col("value").getItem(1).as("processedBodyLength")
       )
       .describe()
       .show()
 
     if(wikiConfig.outputVocabularyPath.isDefined){
       val vocabBuilder = VocabBuilder(spark)
-      val vocabDs = vocabBuilder.vocabulary(lemmatizedPagesDs)
+      val vocabDs = vocabBuilder.vocabulary(processedPagesDs)
       vocabDs.repartition(1).write.text(wikiConfig.outputVocabularyPath.get)
     }
-
-    lemmatizedPagesDs.unpersist()
-    pagesDs.unpersist()
 
     val endTime = System.nanoTime()
 

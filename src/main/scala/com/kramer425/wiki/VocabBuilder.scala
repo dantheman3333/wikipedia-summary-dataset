@@ -7,7 +7,7 @@ class VocabBuilder(spark: SparkSession) extends Serializable {
 
   import spark.implicits._
 
-  def vocabulary(lemmatizedWikiPages: Dataset[LemmatizedWikiPage]): Dataset[String] = {
+  def vocabulary(lemmatizedWikiPages: Dataset[ProcessedWikiPage]): Dataset[String] = {
 
     val summaries = lemmatizedWikiPages.select("summary").toDF("textSeq")
     val bodies = lemmatizedWikiPages.select("body").toDF("textSeq")
