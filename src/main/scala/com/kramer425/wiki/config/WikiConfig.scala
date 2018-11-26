@@ -4,13 +4,37 @@ import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigSyntax}
 import com.kramer425.files.FileReader
 
-case class WikiConfig(inputDir: String,
+case class WikiConfig(configPath: String,
+                      inputDir: String,
                       outputRegularPath: Option[String],
                       outputLemmatizedPath: Option[String],
                       outputVocabularyPath: Option[String],
                       outputFormat: String,
-                      outputDelimiter: String,
-                      newlineReplacement: Option[String])
+                      outputDelimiter: Option[String],
+                      newlineReplacement: Option[String]){
+  val sparkWriteOptions = {
+    var map = scala.collection.mutable.Map[String, String]()
+
+    if(outputFormat == "parquet"){
+      map += "compression" -> "none"
+    }else{
+      map += "delimiter" -> outputDelimiter.get
+    }
+    map
+  }
+
+  override def toString: String = {
+    s"""configPath: $configPath
+       |inputDir: $inputDir
+       |outputFormat: $outputFormat
+       |outputDelimiter: $outputDelimiter
+       |newlineReplacement: $newlineReplacement
+       |outputRegularPath: $outputRegularPath
+       |outputLemmatizedPath: $outputLemmatizedPath
+       |outputVocabularyPath: $outputVocabularyPath
+     """.stripMargin
+  }
+}
 
 
 object WikiConfig {
@@ -19,7 +43,7 @@ object WikiConfig {
     parseConfig(path)
   }
 
-  val allowedOutputFormats = Set("csv", "txt")
+  val allowedOutputFormats = Set("csv", "txt", "parquet")
 
   private def parseConfig(filePath: String): WikiConfig = {
     val config = readFile(filePath)
@@ -38,11 +62,11 @@ object WikiConfig {
       throw new BadValue("output.format", "Allowed output formats: " + allowedOutputFormats.mkString(", "))
     }
 
-    val outputDelimiter = config.getString("output.delimiter").toLowerCase
+    val outputDelimiter = config.getOptional[String]("output.delimiter")
 
     val newLineReplacement = config.getOptional[String]("output.newLineReplacement")
 
-    WikiConfig(inputDir, outputRegularPath, outputLemmatizedPath, outputVocabularyPath, outputFormat, outputDelimiter, newLineReplacement)
+    WikiConfig(filePath, inputDir, outputRegularPath, outputLemmatizedPath, outputVocabularyPath, outputFormat, outputDelimiter, newLineReplacement)
   }
 
   private def join(base: String, post: String): String = {

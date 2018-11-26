@@ -14,6 +14,7 @@ object Main {
     }
 
     val wikiConfig = WikiConfig(args(0))
+    println(wikiConfig)
 
     val spark = SparkSession.builder().appName("wiki-smry-dataset").getOrCreate()
     import spark.implicits._
@@ -27,9 +28,10 @@ object Main {
     pagesDs.cache()
 
     if(wikiConfig.outputRegularPath.isDefined){
+      println(s"Saving regular to ${wikiConfig.outputRegularPath.get}")
       pagesDs.write
         .format(wikiConfig.outputFormat)
-        .option("delimiter", wikiConfig.outputDelimiter)
+        .options(wikiConfig.sparkWriteOptions)
         .save(wikiConfig.outputRegularPath.get)
     }
 
@@ -53,15 +55,17 @@ object Main {
 
     processedPagesDs.cache()
 
+
     if(wikiConfig.outputLemmatizedPath.isDefined){
+      println(s"Saving lemmatized to ${wikiConfig.outputLemmatizedPath.get}")
       processedPagesDs.select(
         col("id"),
         col("title"),
-        concat_ws(" ", col("summary")),
-        concat_ws(" ", col("body")))
+        concat_ws(" ", col("summary")).as("summary"),
+        concat_ws(" ", col("body")).as("body"))
         .write
         .format(wikiConfig.outputFormat)
-        .option("delimiter", wikiConfig.outputDelimiter)
+        .options(wikiConfig.sparkWriteOptions)
         .save(wikiConfig.outputLemmatizedPath.get)
     }
 
@@ -76,6 +80,7 @@ object Main {
       .show()
 
     if(wikiConfig.outputVocabularyPath.isDefined){
+      println(s"Saving vocab to ${wikiConfig.outputVocabularyPath.get}")
       val vocabBuilder = VocabBuilder(spark)
       val vocabDs = vocabBuilder.vocabulary(processedPagesDs)
       vocabDs.repartition(1).write.text(wikiConfig.outputVocabularyPath.get)

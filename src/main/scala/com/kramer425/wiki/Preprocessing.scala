@@ -58,16 +58,15 @@ class Preprocessing(spark: SparkSession) extends Serializable {
     val nSummary = normalizeString(wikiPage.summary)
     val nBody = normalizeString(wikiPage.body)
 
-    val summaryLemmas: Seq[String] = plainTextToLemmasAndNER(nSummary, stanfordNLP, stopWords)
-    val bodyLemmas: Seq[String] = plainTextToLemmasAndNER(nBody, stanfordNLP, stopWords)
+    val summaryLemmas: Seq[String] = plainTextToLemmas(nSummary, stanfordNLP, stopWords)
+    val bodyLemmas: Seq[String] = plainTextToLemmas(nBody, stanfordNLP, stopWords)
 
     ProcessedWikiPage(wikiPage.id, wikiPage.title, summaryLemmas, bodyLemmas)
   }
 
   private def nlpInstance(): StanfordCoreNLP = {
     val props = new Properties()
-    props.put("annotators", "tokenize, ssplit, pos, lemma, ner")
-    props.put("threads", "3") //also need to set spark's spark.task.cpus to 3
+    props.put("annotators", "tokenize, ssplit, pos, lemma")
     new StanfordCoreNLP(props)
   }
 
@@ -80,23 +79,17 @@ class Preprocessing(spark: SparkSession) extends Serializable {
   }
 
   // Convert text to Seq of lemmas. Add sentence start tokens and sentence end tokens. Replace numbers with token
-  private def plainTextToLemmasAndNER(text: String, stanfordNLP: StanfordCoreNLP, stopWords: Set[String]): Seq[String] = {
+  private def plainTextToLemmas(text: String, stanfordNLP: StanfordCoreNLP, stopWords: Set[String]): Seq[String] = {
     val doc = new Annotation(text)
     stanfordNLP.annotate(doc)
     val lemmas = new ArrayBuffer[String]()
     val sentences = doc.get(classOf[SentencesAnnotation])
     for (sentence <- sentences.asScala; token <- sentence.get(classOf[TokensAnnotation]).asScala) {
-      val ner = token.ner()
-      if (ner.isEmpty || ner.equals("O")) {
-        val lemma = token.get(classOf[LemmaAnnotation]).toLowerCase
-        if (lemma.length > 2 && !stopWords.contains(lemma) && isOnlyLetters(lemma)) {
-          lemmas += lemma
-        } else if (isNumber(lemma)) {
-          lemmas += NUMBER_TOKEN
-        }
-      } else {
-        //if named entity is found, replace token with its ner tag
-        lemmas += "<" + token.ner().toUpperCase + ">"
+      val lemma = token.get(classOf[LemmaAnnotation]).toLowerCase
+      if (lemma.length > 2 && !stopWords.contains(lemma) && isOnlyLetters(lemma)) {
+        lemmas += lemma
+      } else if (isNumber(lemma)) {
+        lemmas += NUMBER_TOKEN
       }
     }
     lemmas
