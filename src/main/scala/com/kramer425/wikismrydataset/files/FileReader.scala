@@ -1,4 +1,4 @@
-package com.kramer425.files
+package com.kramer425.wikismrydataset.files
 
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration

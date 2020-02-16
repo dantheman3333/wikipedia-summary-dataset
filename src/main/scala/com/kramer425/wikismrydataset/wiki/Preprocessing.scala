@@ -1,4 +1,4 @@
-package com.kramer425.wiki
+package com.kramer425.wikismrydataset.wiki
 
 import org.apache.spark.sql.{Dataset, SparkSession}
 import java.text.Normalizer
